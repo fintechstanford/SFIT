@@ -1,0 +1,48 @@
+Summary of first-order SFIT
+------------------------------------------------
+First-order significant variables:
+- Variable 1:
+         Median: 1.01
+         99% confidence interval: [0.92 1.12]
+------------------------------------------------
+First-order non-significant variables: [2, 3, 4, 5, 6, 7, 8, 9, 10]
+------------------------------------------------
+There are no significant second-order variables.
+------------------------------------------------ 
+------------------------------------------------ 
+
+Summary of first-order SFIT
+------------------------------------------------
+First-order significant variables:
+- Variable 1:
+         Median: 1.16
+         99% confidence interval: [1.05 1.26]
+- Variable 3:
+         Median: 0.11
+         99% confidence interval: [0.08 0.16]
+------------------------------------------------
+First-order non-significant variables: [2, 4, 5, 6, 7, 8, 9, 10]
+------------------------------------------------
+There are some significant second-order variables: recommended to run second-order SFIT.
+------------------------------------------------ 
+------------------------------------------------ 
+
+Summary of second-order SFIT
+------------------------------------------------
+Second-order significant variables:
+- Variable (2, 1):
+         Median: 0.03
+         99% confidence interval: [0.02 0.04]
+- Variable (4, 5):
+         Median: 0.06
+         99% confidence interval: [0.04 0.08]
+- Variable (5, 4):
+         Median: 0.06
+         99% confidence interval: [0.04 0.08]
+------------------------------------------------
+Second-order non-significant variables: [6, 7, 8, 9, 10]
+------------------------------------------------
+There are no significant third-order variables.
+------------------------------------------------ 
+------------------------------------------------ 
+
