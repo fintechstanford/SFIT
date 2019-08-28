@@ -32,9 +32,9 @@ def sfit_first_order(model, loss, alpha, beta, x, y):
     loss : function
         Function that computes the pointwise loss between 2 numpy arrays of outcomes, its first argument should be the
         predicted outcomes and its second should be the true ones.
-    alpha : int
+    alpha : float
         Significance level of the test
-    beta: int
+    beta: float
         Regularization amount of the test
     x: numpy array of shape (N, p)
         Input data used to perform the tests
