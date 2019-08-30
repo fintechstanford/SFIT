@@ -21,7 +21,7 @@ def absolute_loss(predicted_y, true_y):
     return np.abs(true_y - np.squeeze(predicted_y))
 
 
-def sfit_first_order(model, loss, alpha, beta, x, y):
+def sfit_first_order(model, loss, alpha, beta, x, y, verbose=1):
     """Compute the first-order SFIT method to test what are the first-order significant variables within x toward the
     prediction of y as learned by the model.
 
@@ -40,7 +40,8 @@ def sfit_first_order(model, loss, alpha, beta, x, y):
         Input data used to perform the tests
     y: numpy array of shape (N, )
         True outcomes
-
+    verbose: boolean
+        The summary of the test procedure is printed if true (default) but no printing if false.
     Returns
     -------
     s_1 : list
@@ -52,6 +53,8 @@ def sfit_first_order(model, loss, alpha, beta, x, y):
         the list of first-order non-significant variables (indexed from 1 to p)
     p_values : numpy array of shape (p, )
         array containing the p-values associated with each variables.
+    second_order_significance : boolean
+        If true, indicates the presence of significant second-order effects which suggests to use second-order SFIT.
     """
     c_1 = {}
     s_1 = []
@@ -80,18 +83,19 @@ def sfit_first_order(model, loss, alpha, beta, x, y):
             c_1[j] = (np.median(delta_j), (ordered_delta_j[lower], ordered_delta_j[upper]))
         else:
             u_1.append(j)
-
-    print('Summary of first-order SFIT\n'
-          '------------------------------------------------\n'
-          'First-order significant variables:')
-    for key in c_1.keys():
-        print('- Variable {0}:'.format(key))
-        print('\t Median: {0}'.format(np.round(c_1[key][0], 2)))
-        print('\t {0}% confidence interval: {1}'.format(int(100*(1-alpha)), np.round(c_1[key][1], 2)))
-    print('------------------------------------------------\n'
-          'First-order non-significant variables: {0}'.format(u_1))
+    if verbose:
+        print('Summary of first-order SFIT\n'
+              '------------------------------------------------\n'
+              'First-order significant variables:')
+        for key in c_1.keys():
+            print('- Variable {0}:'.format(key))
+            print('\t Median: {0}'.format(np.round(c_1[key][0], 2)))
+            print('\t {0}% confidence interval: {1}'.format(int(100*(1-alpha)), np.round(c_1[key][1], 2)))
+        print('------------------------------------------------\n'
+              'First-order non-significant variables: {0}'.format(u_1))
 
     # Test for presence of any second-order significance:
+    second_order_significance = False
     x_first = np.copy(x)
     indices = [i for i in range(1, p) if i in u_1]
     x_first[:, indices] = 0
@@ -102,17 +106,21 @@ def sfit_first_order(model, loss, alpha, beta, x, y):
     delta_j = model_first_errors - model_all_errors
     n_j = np.sum(delta_j > 0)
     if binom_test(n_j, n, 0.5, 'larger') < alpha:
-        print('------------------------------------------------\n'
-              'There are some significant second-order variables: recommended to run second-order SFIT.')
+        second_order_significance = True
+        if verbose:
+            print('------------------------------------------------\n'
+                  'There are some significant second-order variables: recommended to run second-order SFIT.')
     else:
-        print('------------------------------------------------\n'
-              'There are no significant second-order variables.')
-    print('------------------------------------------------ \n'
-          '------------------------------------------------ \n')
-    return s_1, c_1, u_1, p_values
+        if verbose:
+            print('------------------------------------------------\n'
+                  'There are no significant second-order variables.')
+    if verbose:
+        print('------------------------------------------------ \n'
+              '------------------------------------------------ \n')
+    return s_1, c_1, u_1, p_values, second_order_significance
 
 
-def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1):
+def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1, verbose=1):
     """Compute the second-order SFIT method to test what are the second-order significant variables within x toward the
     prediction of y as learned by the model.
 
@@ -135,6 +143,8 @@ def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1):
         the list of first-order significant variables as returned by sfit_first_order
     u_1 : list
         the list of first-order non-significant variables as returned by sfit_first_order
+    verbose: boolean
+        The summary of the test procedure is printed if true (default) but no printing if false.
 
     Returns
     -------
@@ -145,6 +155,8 @@ def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1):
         whose first element is the test statistic value and second element is its (1 - alpha)% confidence interval
     u_2 : list
         the list of second-order non-significant variables (indexed from 1 to p)
+    third_order_significance : boolean
+        If true, indicates the presence of significant third-order effects.
     """
     s_2 = []
     c_2 = {}
@@ -181,16 +193,16 @@ def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1):
                 c_2[(j, k)] = (np.median(delta_jk), (ordered_delta_jk[lower], ordered_delta_jk[upper]))
         if j not in s_2:
             u_2.append(j)
-
-    print('Summary of second-order SFIT\n'
-          '------------------------------------------------\n'
-          'Second-order significant variables:')
-    for key in c_2.keys():
-        print('- Variable {0}:'.format(key))
-        print('\t Median: {0}'.format(np.round(c_2[key][0], 2)))
-        print('\t {0}% confidence interval: {1}'.format(int(100*(1-alpha)), np.round(c_2[key][1], 2)))
-    print('------------------------------------------------\n'
-          'Second-order non-significant variables: {0}'.format(u_2))
+    if verbose:
+        print('Summary of second-order SFIT\n'
+              '------------------------------------------------\n'
+              'Second-order significant variables:')
+        for key in c_2.keys():
+            print('- Variable {0}:'.format(key))
+            print('\t Median: {0}'.format(np.round(c_2[key][0], 2)))
+            print('\t {0}% confidence interval: {1}'.format(int(100*(1-alpha)), np.round(c_2[key][1], 2)))
+        print('------------------------------------------------\n'
+              'Second-order non-significant variables: {0}'.format(u_2))
 
     # Test for presence of any third-order significance:
     x_second = np.copy(x)
@@ -202,13 +214,18 @@ def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1):
     model_all_errors = loss(predicted_y_all, y)
     delta_j = model_second_errors - model_all_errors
     n_j = np.sum(delta_j > 0)
+    third_order_significance = False
     if binom_test(n_j, n, 0.5, 'larger') < 0.05:
-        print('------------------------------------------------\n'
-              'There are some significant third-order variables: recommended to run third-order SFIT.')
+        third_order_significance = True
+        if verbose:
+            print('------------------------------------------------\n'
+                  'There are some significant third-order variables: recommended to run third-order SFIT.')
     else:
-        print('------------------------------------------------\n'
-              'There are no significant third-order variables.')
-    print('------------------------------------------------ \n'
-          '------------------------------------------------ \n')
+        if verbose:
+            print('------------------------------------------------\n'
+                  'There are no significant third-order variables.')
+    if verbose:
+        print('------------------------------------------------ \n'
+              '------------------------------------------------ \n')
 
-    return s_2, c_2, u_2
+    return s_2, c_2, u_2, third_order_significance
