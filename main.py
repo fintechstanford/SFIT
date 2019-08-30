@@ -2,10 +2,11 @@ from sklearn.preprocessing import MaxAbsScaler
 import statsmodels.api as sm
 from sklearn.metrics import mean_squared_error
 import tensorflow as tf
-from keras.models import Model
+from keras.models import Model, load_model
 from keras.layers import Input, Dense
 from keras.callbacks import EarlyStopping
 from sfit import *
+import pickle
 
 
 def generate_y_given(x, epsilon):
@@ -14,7 +15,38 @@ def generate_y_given(x, epsilon):
     return y
 
 
+def run_unit_test():
+    X_test = np.load('./test/X_test.npy')
+    Y_test = np.load('./test/Y_test.npy')
+    model = load_model('./test/NN_model.h5')
+    with open('./test/sfit_dict_first_order.pkl', 'rb') as fp:
+        sfit_dict_first_order = pickle.load(fp)
+    with open('./test/sfit_dict_second_order.pkl', 'rb') as fp:
+        sfit_dict_second_order = pickle.load(fp)
+    alpha = 0.01
+    beta = 1e-3
+    results_sfit_NN = sfit_first_order(model=model,
+                                       loss=absolute_loss,
+                                       alpha=alpha,
+                                       beta=beta,
+                                       x=X_test,
+                                       y=Y_test)
+    results_sfit_second_order_NN = sfit_second_order(model=model,
+                                                     loss=absolute_loss,
+                                                     alpha=alpha,
+                                                     beta=beta,
+                                                     x=X_test,
+                                                     y=Y_test,
+                                                     s_1=results_sfit_NN[0],
+                                                     u_1=results_sfit_NN[2])
+    assert results_sfit_NN[1] == sfit_dict_first_order, "Should be equal"
+    assert results_sfit_second_order_NN[1] == sfit_dict_second_order, "Should be equal"
+
+
 if __name__ == "__main__":
+
+    run_unit_test()
+
     N_train = 100000
     N_test = 10000
     d = 10
