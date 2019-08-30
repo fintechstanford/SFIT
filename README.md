@@ -17,7 +17,7 @@ For more details, please refer to the
 ## Requirements
 
 The sfit functions require
-`numpy`, `scipy`, and `statsmodels`.
+`numpy`, `scipy`, `statsmodels`, `keras` and `sklearn`.
 
 The main file that illustrates use cases of the code and replicate the results of the simulations from the
 [paper](https://arxiv.org/pdf/1905.09849.pdf) require

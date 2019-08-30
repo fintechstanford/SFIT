@@ -1,6 +1,9 @@
 import numpy as np
 from scipy.stats import norm
 from statsmodels.stats.proportion import binom_test
+from keras.initializers import glorot_normal
+import keras.backend as K
+from sklearn.model_selection import train_test_split
 
 
 def absolute_loss(predicted_y, true_y):
@@ -21,7 +24,43 @@ def absolute_loss(predicted_y, true_y):
     return np.abs(true_y - np.squeeze(predicted_y))
 
 
-def sfit_first_order(model, loss, alpha, beta, x, y, verbose=1):
+def compute_errors(loss, model, n, p, x, y):
+    x_intercept = np.copy(x)
+    x_intercept[:, range(1, p)] = 0
+    predicted_y = model.predict(x_intercept)
+    errors = np.zeros((n, p))
+    errors[:, 0] = loss(predicted_y, y)
+    for j in range(1, p):
+        x_j = np.copy(x)
+        indices = [i for i in range(1, p) if i != j]
+        x_j[:, indices] = 0
+        predicted_y_j = model.predict(x_j)
+        errors[:, j] = loss(predicted_y_j, y)
+    return errors
+
+
+def sign_test(alpha, beta, errors, n, p):
+    c_1 = {}
+    s_1 = []
+    u_1 = []
+    p_values = np.zeros(p - 1)
+    for j in range(1, p):
+        delta_j = (1 - beta) * errors[:, 0] - errors[:, j]
+        n_j = np.sum(delta_j > 0)
+        p_values[j - 1] = binom_test(n_j, n, 0.5, 'larger')
+        if binom_test(n_j, n, 0.5, 'larger') < alpha:
+            q = norm.ppf(1 - alpha / 2, 0, 1)
+            lower = int(np.floor((n + 1) / 2 - q * np.sqrt(n) / 2))
+            upper = int(np.ceil((n + 1) / 2 + q * np.sqrt(n) / 2))
+            ordered_delta_j = np.sort(delta_j)
+            s_1.append(j)
+            c_1[j] = (np.median(delta_j), (ordered_delta_j[lower], ordered_delta_j[upper]))
+        else:
+            u_1.append(j)
+    return c_1, p_values, s_1, u_1
+
+
+def sfit_first_order(model, loss, x, y, alpha, beta=None, verbose=1):
     """Compute the first-order SFIT method to test what are the first-order significant variables within x toward the
     prediction of y as learned by the model.
 
@@ -32,14 +71,15 @@ def sfit_first_order(model, loss, alpha, beta, x, y, verbose=1):
     loss : function
         Function that computes the pointwise loss between 2 numpy arrays of outcomes, its first argument should be the
         predicted outcomes and its second should be the true ones.
-    alpha : float
-        Significance level of the test
-    beta: float
-        Regularization amount of the test
     x: numpy array of shape (N, p)
         Input data used to perform the tests
     y: numpy array of shape (N, )
         True outcomes
+    alpha : float
+        Significance level of the test
+    beta: float
+        Regularization amount of the test. If set to None, the optimal beta parameter is found using the randomization
+        procedure described in the original SFIT paper (works only when model is a Keras model).
     verbose: boolean
         The summary of the test procedure is printed if true (default) but no printing if false.
     Returns
@@ -55,34 +95,40 @@ def sfit_first_order(model, loss, alpha, beta, x, y, verbose=1):
         array containing the p-values associated with each variables.
     second_order_significance : boolean
         If true, indicates the presence of significant second-order effects which suggests to use second-order SFIT.
+    opt_beta : float
+        Equals to beta if beta is passed as argument, otherwise equals to the optimal beta found from randomization
+        procedure.
     """
-    c_1 = {}
-    s_1 = []
-    u_1 = []
     (n, p) = x.shape
-    p_values = np.zeros(p-1)
-    x_intercept = np.copy(x)
-    x_intercept[:, range(1, p)] = 0
-    predicted_y = model.predict(x_intercept)
-    baseline_model_errors = loss(predicted_y, y)
-    for j in range(1, p):
-        x_j = np.copy(x)
-        indices = [i for i in range(1, p) if i != j]
-        x_j[:, indices] = 0
-        predicted_y_j = model.predict(x_j)
-        model_j_errors = loss(predicted_y_j, y)
-        delta_j = (1-beta)*baseline_model_errors - model_j_errors
-        n_j = np.sum(delta_j > 0)
-        p_values[j-1] = binom_test(n_j, n, 0.5, 'larger')
-        if binom_test(n_j, n, 0.5, 'larger') < alpha:
-            q = norm.ppf(1-alpha/2, 0, 1)
-            lower = int(np.floor((n+1)/2 - q*np.sqrt(n)/2))
-            upper = int(np.ceil((n+1)/2 + q*np.sqrt(n)/2))
-            ordered_delta_j = np.sort(delta_j)
-            s_1.append(j)
-            c_1[j] = (np.median(delta_j), (ordered_delta_j[lower], ordered_delta_j[upper]))
-        else:
-            u_1.append(j)
+    errors = compute_errors(loss, model, n, p, x, y)
+    if beta is not None:
+        opt_beta = beta
+        c_1, p_values, s_1, u_1 = sign_test(alpha, beta, errors, n, p)
+    else:
+        print('Compute optimal beta')
+        beta = 1e-7
+        mean_nr_significants = 1
+        initial_weights = model.get_weights()
+        k_eval = lambda placeholder: placeholder.eval(session=K.get_session())
+        nr_simulations = 20
+        x_val, x_test, y_val, y_test = train_test_split(x, y, test_size=0.5)
+        n_val = x_val.shape[0]
+        n_test = x_test.shape[0]
+        while mean_nr_significants > alpha:
+            beta = beta*10
+            nr_significants_per_sim = np.zeros(nr_simulations)
+            for i in range(nr_simulations):
+                new_weights = [k_eval(glorot_normal()(w.shape)) for w in initial_weights]
+                model.set_weights(new_weights)
+                errors_i = compute_errors(loss, model, n_val, p, x_val, y_val)
+                c_1_i, p_values_i, s_1_i, u_1_i = sign_test(alpha, beta, errors_i, n_val, p)
+                nr_significants_per_sim[i] = len(s_1_i)/p
+            mean_nr_significants = np.mean(nr_significants_per_sim)
+        opt_beta = beta
+        print('Optimal beta found: {0}'.format(opt_beta))
+        model.set_weights(initial_weights)
+        errors = compute_errors(loss, model, n_test, p, x_test, y_test)
+        c_1, p_values, s_1, u_1 = sign_test(alpha, beta, errors, n_test, p)
     if verbose:
         print('Summary of first-order SFIT\n'
               '------------------------------------------------\n'
@@ -117,7 +163,7 @@ def sfit_first_order(model, loss, alpha, beta, x, y, verbose=1):
     if verbose:
         print('------------------------------------------------ \n'
               '------------------------------------------------ \n')
-    return s_1, c_1, u_1, p_values, second_order_significance
+    return s_1, c_1, u_1, p_values, second_order_significance, opt_beta
 
 
 def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1, verbose=1):

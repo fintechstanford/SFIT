@@ -27,10 +27,10 @@ def run_unit_test():
     beta = 1e-3
     results_sfit_NN = sfit_first_order(model=model,
                                        loss=absolute_loss,
-                                       alpha=alpha,
-                                       beta=beta,
                                        x=X_test,
-                                       y=Y_test)
+                                       y=Y_test,
+                                       alpha=alpha,
+                                       beta=beta)
     results_sfit_second_order_NN = sfit_second_order(model=model,
                                                      loss=absolute_loss,
                                                      alpha=alpha,
@@ -48,7 +48,7 @@ if __name__ == "__main__":
     run_unit_test()
 
     N_train = 100000
-    N_test = 10000
+    N_test = 20000
     d = 10
     noise = 0.01
 
@@ -102,24 +102,24 @@ if __name__ == "__main__":
     beta = 1e-3
     results_sfit_lin = sfit_first_order(model=model_lin,
                                         loss=absolute_loss,
-                                        alpha=alpha,
-                                        beta=beta,
                                         x=X_test,
-                                        y=Y_test)
+                                        y=Y_test,
+                                        alpha=alpha,
+                                        beta=beta)
 
     results_sfit_NN = sfit_first_order(model=model,
                                        loss=absolute_loss,
                                        alpha=alpha,
-                                       beta=beta,
+                                       beta=None,
                                        x=X_test,
                                        y=Y_test)
 
     # Run second-order SFIT:
-    beta = 1e-3
+    opt_beta = results_sfit_NN[5]
     results_sfit_second_order_NN = sfit_second_order(model=model,
                                                      loss=absolute_loss,
                                                      alpha=alpha,
-                                                     beta=beta,
+                                                     beta=opt_beta,
                                                      x=X_test,
                                                      y=Y_test,
                                                      s_1=results_sfit_NN[0],
