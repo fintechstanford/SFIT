@@ -24,6 +24,26 @@ def absolute_loss(predicted_y, true_y):
     return np.abs(true_y - np.squeeze(predicted_y))
 
 
+def binary_cross_entropy_loss(predicted_y, true_y):
+    """Compute the binary cross entropy loss between a vector of labels of size N and a vector of probabilities of same
+    size
+
+    Parameters
+    ----------
+    predicted_y : numpy array of shape (N, 1)
+        The predicted probabilities
+    true_y : numpy array of shape (N, )
+        The true labels
+
+    Returns
+    -------
+    binary_cross_entropy_loss
+        a numpy array of shape (N, )
+    """
+
+    return -np.log(np.squeeze(predicted_y))*true_y - np.log(1 - np.squeeze(predicted_y))*(1 - true_y)
+
+
 def compute_errors(loss, model, n, p, x, y):
     x_intercept = np.copy(x)
     x_intercept[:, range(1, p)] = 0
