@@ -120,6 +120,8 @@ def sfit_first_order(model, loss, x, y, alpha, beta=None, verbose=1):
         procedure.
     """
     (n, p) = x.shape
+    assert np.array_equal(x[:, 0], np.ones(n)), 'As an intercept, all the entries of the first column of x ' \
+                                                'should be equal to 1.'
     errors = compute_errors(loss, model, n, p, x, y)
     if beta is not None:
         opt_beta = beta
@@ -228,6 +230,8 @@ def sfit_second_order(model, loss, alpha, beta, x, y, s_1, u_1, verbose=1):
     c_2 = {}
     u_2 = []
     (n, p) = x.shape
+    assert np.array_equal(x[:, 0], np.ones(n)), 'As an intercept, all the entries of the first column of x ' \
+                                                'should be equal to 1.'
     x_intercept = np.copy(x)
     x_intercept[:, range(1, p)] = 0
     predicted_y_intercept = model.predict(x_intercept)
